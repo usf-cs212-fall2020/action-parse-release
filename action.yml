@@ -1,0 +1,58 @@
+name: 'Parse Project Release'
+description: 'Github Action to parse the project, release, and test class to use from the tag.'
+
+inputs:
+  ref:
+    description: 'The release or tag reference to parse.'
+    required: true
+    default: '${{ github.ref }}'
+
+outputs:
+  release_number:
+    value: ${{ steps.parse-project-release.outputs.release_number }}
+  project_number:
+    value: ${{ steps.parse-project-release.outputs.project_number }}
+  version_number:
+    value: ${{ steps.parse-project-release.outputs.version_number }}
+  project_tester:
+    value: ${{ steps.parse-project-release.outputs.project_tester }}
+
+runs:
+  using: "composite"
+  steps:
+  - name: Parse Project Release
+    id: parse-project-release
+    shell: bash
+    run: |
+      RELEASE_REF="${{ inputs.ref }}"
+      echo "Tag: ${RELEASE_REF}"
+
+      if [[ ${RELEASE_REF} =~ ^refs/tags/(v([1-4])\.([0-9]+)\.([0-9]+))$ ]]; then
+        RELEASE_NUM=${BASH_REMATCH[1]}
+        PROJECT_NUM=${BASH_REMATCH[2]}
+        VERSION_NUM=${BASH_REMATCH[3]}
+
+        echo "::set-output name=release_number::${RELEASE_NUM}"
+        echo "::set-output name=project_number::${PROJECT_NUM}"
+        echo "::set-output name=version_number::${VERSION_NUM}"
+
+        echo "Project: ${PROJECT_NUM}, Version: ${VERSION_NUM}, Release: ${RELEASE_NUM}, User: ${{ github.actor }}"
+
+        if [[ ${PROJECT_NUM} -eq 3 ]]; then
+          if [[ ${VERSION_NUM} -eq 0 ]]; then
+            TEST_CLASS="Project3aTest"
+          else
+            TEST_CLASS="Project3bTest"
+          fi
+        else
+          TEST_CLASS="Project${PROJECT_NUM}Test"
+        fi
+
+        echo "Test Class: ${TEST_CLASS}"
+        echo "::set-output name=project_tester::${TEST_CLASS}"
+
+        exit 0
+      fi
+
+      echo "::error ::The release tag ${RELEASE_REF} in an unexpected format."
+      exit 1
